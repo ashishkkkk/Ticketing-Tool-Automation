@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "compile",
+			"type": "shell",
+			"command": "C:\\Users\\ashishk\\maven\\apache-maven-3.9.12\\bin\\mvn.cmd",
+			"args": [
+				"compile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run",
+			"type": "shell",
+			"command": "C:\\Users\\ashishk\\maven\\apache-maven-3.9.12\\bin\\mvn.cmd",
+			"args": [
+				"exec:java",
+				"-D",
+				"exec.mainClass=com.example.Main"
+			],
+			"group": "test"
+		}
+	]
+}
