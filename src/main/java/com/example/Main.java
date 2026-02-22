@@ -25,6 +25,9 @@ import java.util.Map;
 import java.util.HashMap;
 import javax.swing.JOptionPane;
 import javax.swing.JDialog;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Clipboard;
+import java.awt.Toolkit;
 
 public class Main {
     private static final Logger logger = Logger.getLogger(Main.class.getName());
@@ -77,6 +80,7 @@ public class Main {
 
                     // Check if any tickets exist
                     if (!isTicketPresent(driver)) {
+                        Thread.sleep(5000);
                         logger.info("No more tickets found. Exiting loop.");
                         JOptionPane pane = new JOptionPane("No more tickets available. All tickets processed.", JOptionPane.INFORMATION_MESSAGE);
                         JDialog dialog = pane.createDialog("Process Complete");
@@ -349,6 +353,12 @@ public class Main {
             String outputPath = "sap_output.txt";
 
             try {
+                // Copy POR numbers to system clipboard for SAP to paste
+                String clipboardData = String.join("\n", porNumbers);
+                StringSelection stringSelection = new StringSelection(clipboardData);
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(stringSelection, null);
+
                 StringBuilder vbsContent = new StringBuilder();
                 // --- VBScript Generation ---
                 vbsContent.append("If Not IsObject(application) Then\n");
@@ -373,16 +383,14 @@ public class Main {
                 // Click 'Multiple Selection' button for the POR field
                 vbsContent.append("session.findById(\"wnd[0]/usr/btn%_I4_%_APP_%-VALU_PUSH\").press\n"); 
 
-                // Paste all PORs into the multiple selection window
-                for (int i = 0; i < porNumbers.size(); i++) {
-                    vbsContent.append("session.findById(\"wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/txtRSCSEL_255-SLOW_I[1,").append(i).append("]\").text = \"").append(porNumbers.get(i)).append("\"\n");
-                }
+                // Paste from clipboard (Shift+F12)
+                vbsContent.append("session.findById(\"wnd[1]/tbar[0]/btn[24]\").press\n");
 
                 // Execute multiple selection and then the main search
                 vbsContent.append("session.findById(\"wnd[1]/tbar[0]/btn[8]\").press\n"); 
                 vbsContent.append("session.findById(\"wnd[0]/tbar[1]/btn[8]\").press\n"); 
                 
-                vbsContent.append("WScript.Sleep 5000\n"); 
+                vbsContent.append("WScript.Sleep 10000\n"); 
 
                 vbsContent.append("Set grid = session.findById(\"wnd[0]/usr/cntlGRID1/shellcont/shell\")\n");
 
@@ -399,6 +407,7 @@ public class Main {
                 // Loop through all rows and extract data only if both POR and SDN are present
                 vbsContent.append("rowCount = grid.RowCount\n");
                 vbsContent.append("For i = 0 To rowCount - 1\n");
+                vbsContent.append("  grid.firstVisibleRow = i\n");
                 // The getCellValue method requires the technical field name, not the display label.
                 vbsContent.append("  por_val = grid.getCellValue(i, \"DMSPONO\")\n"); // 'DMSPONO' is the technical name for the 'Customer Reference' column.
                 vbsContent.append("  sdn_val = grid.getCellValue(i, \"SDN\")\n");   // 'SDN' is the technical name for the 'Document' column.
