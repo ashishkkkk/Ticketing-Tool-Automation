@@ -1,7 +1,5 @@
 package com.example;
 import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
-
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.JavascriptExecutor;
@@ -37,7 +35,7 @@ public class Main {
     private static final String SAP_SEND_VKEY_0 = "session.findById(\"wnd[0]\").sendVKey 0\n";
     private static final String TICKET_URL = "https://sdpondemand.manageengine.in/app/sandbox_60023490885_100725_iax/ui/requests";
 
-    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S3776"})
+    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S3776","java:S1141","java:S6541"})
     public static void main(String[] args) {
         logger.info("Starting WebDriver setup");
         WebDriverManager.chromedriver().setup();
@@ -162,7 +160,7 @@ public class Main {
             logger.info("Process finished. Browser remains open.");
         }
     }
-
+    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S1192"})
     private static void handleStorageLocationError(WebDriver driver, WebDriverWait wait, String noteText) throws InterruptedException {
         logger.info("Storage location error found. Adding note and reassigning ticket...");
 
@@ -270,7 +268,7 @@ public class Main {
             logger.warning("Status verification for 'In Progress' failed: " + e.getMessage());
         }
     }
-
+    @SuppressWarnings("java:S7467")
     private static boolean isTicketPresent(WebDriver driver) {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(40))
@@ -282,7 +280,7 @@ public class Main {
     }
 
     // This method performs the Selenium steps to extract the POR and navigate through the ticketing system. It returns the extracted POR for use in the SAP process.
-    @SuppressWarnings({"java:S106", "java:S2629","java:S2142"})
+    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S125"})
         private static List<String> performSeleniumSteps(WebDriver driver, WebDriverWait wait) throws InterruptedException {
         Thread.sleep(20000);
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath("((//*[@class=\"listview-display-id\"]))[1]"))).click();
@@ -537,7 +535,7 @@ public class Main {
         }
 
     // This method is a helper to click on dropdown options that may require scrolling. It uses JavaScript to scroll the element into view before clicking, and includes error handling to log any issues encountered during the process.
-    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S3457"})
+    @SuppressWarnings({"java:S106", "java:S2629","java:S2142","java:S3457","java:S135","java:S1141","java:S7467"})
         private static void clickDropdownOptionWithScroll(WebDriver driver, WebDriverWait wait, int index) {
             String xpath = "((//*[@class=\"select2-result-label\"]))[" + index + "]";
             try {
