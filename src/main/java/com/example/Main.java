@@ -77,6 +77,17 @@ public class Main {
                     }
                     isFirstIteration = false;
 
+                    // Filter the ticket list
+                    logger.info("Filtering for PO Tickets");
+                    wait.until(ExpectedConditions.elementToBeClickable(By.xpath("((//*[@class=\"adrop\"]))[4]"))).click();
+                    Thread.sleep(3000);
+                    WebElement searchList = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[class*=\"sdp-filter-search-input sdpod-input\"]")));
+                    searchList.click();
+                    searchList.sendKeys("test2");
+                    Thread.sleep(3000);
+                    wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[title=\"test2\"]"))).click();
+                    Thread.sleep(5000);
+
                     // Check if any tickets exist
                     if (!isTicketPresent(driver)) {
                         Thread.sleep(35000);
