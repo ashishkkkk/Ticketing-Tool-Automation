@@ -90,13 +90,12 @@ public class Main {
 
                     // Check if any tickets exist
                     if (!isTicketPresent(driver)) {
-                        Thread.sleep(35000);
+                        Thread.sleep(25000);
                         logger.info("No more tickets found. Exiting loop.");
                         JOptionPane pane = new JOptionPane("No more tickets available. All tickets processed.", JOptionPane.INFORMATION_MESSAGE);
                         JDialog dialog = pane.createDialog("Process Complete");
                         dialog.setAlwaysOnTop(true);
                         dialog.setVisible(true);
-                        break;
                     }
 
                     List<String> extractedPORs = performSeleniumSteps(driver, wait);
