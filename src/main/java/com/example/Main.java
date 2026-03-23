@@ -7,6 +7,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.StaleElementReferenceException;
 import java.time.Duration;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import java.util.logging.Logger;
@@ -68,6 +69,26 @@ public class Main {
             logger.log(Level.INFO, "Login process took {0} seconds", loginDuration);
             System.out.println("Login process took " + loginDuration + " seconds");
 
+            // Filter the ticket list
+            logger.info("Filtering for PO Tickets");
+            Thread.sleep(7000);
+            for (int i = 0; i < 3; i++) {
+                try {
+                    wait.until(ExpectedConditions.elementToBeClickable(By.xpath("((//*[@class=\"adrop\"]))[4]"))).click();
+                    break;
+                } catch (StaleElementReferenceException e) {
+                    if (i == 2) throw e;
+                    Thread.sleep(2000);
+                }
+            }
+            Thread.sleep(3000);
+            WebElement searchList = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[class*=\"sdp-filter-search-input sdpod-input\"]")));
+            searchList.click();
+            searchList.sendKeys("test2");
+            Thread.sleep(5000);
+            wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[title=\"test2\"]"))).click();
+            Thread.sleep(5000);
+
             boolean isFirstIteration = true;
             while (true) {
                 try {
@@ -76,17 +97,6 @@ public class Main {
                         driver.get(TICKET_URL);
                     }
                     isFirstIteration = false;
-
-                    // Filter the ticket list
-                    logger.info("Filtering for PO Tickets");
-                    wait.until(ExpectedConditions.elementToBeClickable(By.xpath("((//*[@class=\"adrop\"]))[4]"))).click();
-                    Thread.sleep(3000);
-                    WebElement searchList = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[class*=\"sdp-filter-search-input sdpod-input\"]")));
-                    searchList.click();
-                    searchList.sendKeys("test2");
-                    Thread.sleep(3000);
-                    wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("[title=\"test2\"]"))).click();
-                    Thread.sleep(5000);
 
                     // Check if any tickets exist
                     if (!isTicketPresent(driver)) {
@@ -108,7 +118,6 @@ public class Main {
                         Map<String, String> porSdnMap = performSAPProcessVBS("Bijus", "Royal@26", extractedPORs);
 
                         StringBuilder resolutionBuilder = new StringBuilder();
-                        resolutionBuilder.append("HI, PLEASE FIND THE SDN NUMBER BELOW \n");
                         boolean valueFound = false; // Tracks if any value (SDN or message) was found
                         boolean allSdnsFound = !extractedPORs.isEmpty(); // Start with true only if there are PORs to check
                         boolean storageLocationError = false;
@@ -140,20 +149,23 @@ public class Main {
                         // Only proceed if at least one value (SDN or message) was extracted from SAP
                         if (valueFound) {
                             if (storageLocationError) {
-                                handleStorageLocationError(driver, wait, resolutionBuilder.toString());
-                            } else if (allSdnsFound) {
-                                // All PORs have a valid SDN, go to RESOLUTION tab
-                                String ticketID = performResolutionUpdate(driver, wait, resolutionBuilder.toString());
-                                if (ticketID != null && !ticketID.isEmpty()) {
-                                    saveTicketToLocalCSV(ticketID);
-                                }
+                                String errorMessage = "Dear team here one of the po is having storage location error please check and do the needful so that we can resolve the ticket asap\n" + resolutionBuilder.toString();
+                                handleStorageLocationError(driver, wait, errorMessage);
                             } else {
-                                // At least one POR was missing an SDN, go to NOTES tab
-                                addNoteAndSetInProgress(driver, wait, resolutionBuilder.toString());
+                                String successMessage = "Dear Team, Your PO has been interfaced with SAP. Please find them Below and the same will get updated in DMS Shortly.  \n" + resolutionBuilder.toString();
+                                if (allSdnsFound) {
+                                    // All PORs have a valid SDN, go to RESOLUTION tab
+                                    String ticketID = performResolutionUpdate(driver, wait, successMessage);
+                                    if (ticketID != null && !ticketID.isEmpty()) {
+                                        saveTicketToLocalCSV(ticketID);
+                                    }
+                                } else {
+                                    // At least one POR was missing an SDN, go to NOTES tab
+                                    addNoteAndSetInProgress(driver, wait, successMessage);
+                                }
                             }
                         } else {
-                            logger.warning("Skipping ticket resolution because no value (SDN or Message) was extracted from SAP.");
-                            System.out.println("Skipping ticket resolution because no value was extracted from SAP.");
+                            addNoteAndSetInProgress(driver, wait, "these po is not interface in sap");
                         }
                     } else {
                         logger.warning("Skipping SAP process and ticket resolution because POR was not extracted.");
@@ -466,40 +478,59 @@ public class Main {
                 
                 vbsContent.append("WScript.Sleep 10000\n"); 
 
+                vbsContent.append("On Error Resume Next\n");
                 vbsContent.append("Set grid = session.findById(\"wnd[0]/usr/cntlGRID1/shellcont/shell\")\n");
+                vbsContent.append("If Err.Number <> 0 Then\n");
+                vbsContent.append("  gridExists = False\n");
+                vbsContent.append("  Err.Clear\n");
+                vbsContent.append("Else\n");
+                vbsContent.append("  gridExists = True\n");
+                vbsContent.append("End If\n");
+                vbsContent.append("On Error GoTo 0\n");
 
+                vbsContent.append("If gridExists Then\n");
                 // Sort by Document (SDN) column descending to bring the correct/latest record to the top
-                vbsContent.append("grid.setCurrentCell -1, \"SDN\"\n");
-                vbsContent.append("grid.selectColumn \"SDN\"\n");
-                vbsContent.append("session.findById(\"wnd[0]/tbar[1]/btn[40]\").press\n"); // Descending sort button
-                vbsContent.append("WScript.Sleep 2000\n"); // Wait for sort to apply
+                vbsContent.append("  grid.setCurrentCell -1, \"SDN\"\n");
+                vbsContent.append("  grid.selectColumn \"SDN\"\n");
+                vbsContent.append("  session.findById(\"wnd[0]/tbar[1]/btn[40]\").press\n"); // Descending sort button
+                vbsContent.append("  WScript.Sleep 2000\n"); // Wait for sort to apply
 
                 // Write to file
-                vbsContent.append("Set fso = CreateObject(\"Scripting.FileSystemObject\")\n");
-                vbsContent.append("Set f = fso.CreateTextFile(\"").append(outputPath).append("\", True)\n");
+                vbsContent.append("  Set fso = CreateObject(\"Scripting.FileSystemObject\")\n");
+                vbsContent.append("  Set f = fso.CreateTextFile(\"").append(outputPath).append("\", True)\n");
 
                 // Loop through all rows and extract data only if both POR and SDN are present
-                vbsContent.append("rowCount = grid.RowCount\n");
-                vbsContent.append("For i = 0 To rowCount - 1\n");
-                vbsContent.append("  grid.firstVisibleRow = i\n");
+                vbsContent.append("  rowCount = grid.RowCount\n");
+                vbsContent.append("  For i = 0 To rowCount - 1\n");
+                vbsContent.append("    grid.firstVisibleRow = i\n");
                 // The getCellValue method requires the technical field name, not the display label.
-                vbsContent.append("  por_val = grid.getCellValue(i, \"DMSPONO\")\n"); // 'DMSPONO' is the technical name for the 'Customer Reference' column.
-                vbsContent.append("  sdn_val = grid.getCellValue(i, \"SDN\")\n");   // 'SDN' is the technical name for the 'Document' column.
+                vbsContent.append("    por_val = grid.getCellValue(i, \"DMSPONO\")\n"); // 'DMSPONO' is the technical name for the 'Customer Reference' column.
+                vbsContent.append("    sdn_val = grid.getCellValue(i, \"SDN\")\n");   // 'SDN' is the technical name for the 'Document' column.
                 
-                vbsContent.append("  final_val = sdn_val\n");
-                vbsContent.append("  If Trim(final_val) = \"\" Then\n");
-                vbsContent.append("    On Error Resume Next\n");
-                vbsContent.append("    final_val = grid.getCellValue(i, \"MESSAGE\")\n"); // Attempt to read MESSAGE column
-                vbsContent.append("    If Err.Number <> 0 Then final_val = \"\" \n");
-                vbsContent.append("    On Error GoTo 0\n");
-                vbsContent.append("  End If\n");
+                vbsContent.append("    final_val = sdn_val\n");
+                vbsContent.append("    If Trim(final_val) = \"\" Then\n");
+                vbsContent.append("      On Error Resume Next\n");
+                vbsContent.append("      final_val = grid.getCellValue(i, \"MESSAGE\")\n"); // Attempt to read MESSAGE column
+                vbsContent.append("      If Err.Number <> 0 Then final_val = \"\" \n");
+                vbsContent.append("      On Error GoTo 0\n");
+                vbsContent.append("    End If\n");
 
-                vbsContent.append("  If Trim(por_val) <> \"\" And Trim(final_val) <> \"\" Then\n");
-                vbsContent.append("    f.WriteLine por_val & \",\" & final_val\n");
+                vbsContent.append("    If Trim(por_val) <> \"\" And Trim(final_val) <> \"\" Then\n");
+                vbsContent.append("      f.WriteLine por_val & \",\" & final_val\n");
+                vbsContent.append("    End If\n");
+                vbsContent.append("  Next\n");
+                vbsContent.append("  f.Close\n");
+                vbsContent.append("Else\n");
+                // Handle case where grid is not found (likely no results popup). Try to close popup to allow logout.
+                vbsContent.append("  On Error Resume Next\n");
+                vbsContent.append("  session.findById(\"wnd[1]\").close\n"); 
+                vbsContent.append("  If Err.Number <> 0 Then\n");
+                vbsContent.append("    Err.Clear\n");
+                vbsContent.append("    session.findById(\"wnd[1]/tbar[0]/btn[0]\").press\n"); 
                 vbsContent.append("  End If\n");
-                vbsContent.append("Next\n");
+                vbsContent.append("  On Error GoTo 0\n");
+                vbsContent.append("End If\n");
 
-                vbsContent.append("f.Close\n");
                 vbsContent.append("WScript.Sleep 2000\n");
                 // Minimize the SAP session window before closing
                 vbsContent.append("session.findById(\"wnd[0]\").iconify\n");
