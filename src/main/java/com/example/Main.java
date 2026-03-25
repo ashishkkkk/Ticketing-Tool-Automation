@@ -170,6 +170,7 @@ public class Main {
                     } else {
                         logger.warning("Skipping SAP process and ticket resolution because POR was not extracted.");
                         System.out.println("Skipping SAP process and ticket resolution because POR was not extracted.");
+                        addNoteAndSetInProgress(driver, wait, "POR Not Found");
                     }
                 } catch (Exception e) {
                     logger.log(Level.SEVERE, "Error processing ticket in loop", e);
